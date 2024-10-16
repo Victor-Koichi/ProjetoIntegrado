@@ -1,4 +1,17 @@
 import sqlite3
+from datetime import datetime
+
+# Função para adaptar datetime para string no formato aceito pelo SQLite
+def adapt_datetime(dt):
+    return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+# Função para converter string do SQLite para datetime do Python
+def convert_datetime(s):
+    return datetime.strptime(s.decode('utf-8'), '%Y-%m-%d %H:%M:%S')
+
+# Registrar adaptadores e conversores
+sqlite3.register_adapter(datetime, adapt_datetime)
+sqlite3.register_converter("DATETIME", convert_datetime)
 
 
 # **To register a product you need to give it a name and category, minimum stock, maximum stock, regular stock and location**
@@ -54,7 +67,8 @@ class Product:
                 movement_category VARCHAR(20),
                 moved_quantity INTEGER,
                 before_change VARCHAR(20),
-                after_change VARCHAR(20)
+                after_change VARCHAR(20),
+                timestamp DATETIME 
             )
             """
             cursor.execute(create_movements_table)
@@ -98,7 +112,7 @@ class Product:
     
 class Moves:
     def __init__(self):
-        self.log_movements = "INSERT INTO Movements (product_code, movement_category, moved_quantity, before_change, after_change) VALUES (?, ?, ?, ?, ?)"        
+        self.log_movements = "INSERT INTO Movements (product_code, movement_category, moved_quantity, before_change, after_change, timestamp) VALUES (?, ?, ?, ?, ?, ?)"        
         self.update_stock = "UPDATE Stock SET real_stock = ? WHERE product_code = ?"
 #         Tabela Produto:
 
@@ -141,8 +155,10 @@ class Moves:
                     new_stock = current_stock - sale_qnty
                     #update stock table
                     cursor.execute(self.update_stock, (new_stock, product_code))
+                    
+                    date = datetime.now()
                     # insert into movement logs (refatorate? instance the execute code?)
-                    cursor.execute(self.log_movements, (product_code, 'SALE', sale_qnty, current_stock, new_stock))
+                    cursor.execute(self.log_movements, (product_code, 'SALE', sale_qnty, current_stock, new_stock, date))
                     conn.commit()    
                     #talvez consultar novamente a table?
                     print(f"Foram vendidos {sale_qnty} pcs, do produto {product_code}, estoque atual = {new_stock} ")
@@ -166,7 +182,10 @@ class Moves:
                 current_stock = result[0]
                 new_stock = current_stock + purchase_qnty
                 cursor.execute(self.update_stock, (new_stock, product_code))
-                cursor.execute(self.log_movements, (product_code, 'PURCHASE', purchase_qnty, current_stock, new_stock))
+                
+                date = datetime.now()
+                # add to log (refactor?)
+                cursor.execute(self.log_movements, (product_code, 'PURCHASE', purchase_qnty, current_stock, new_stock, date))
                 conn.commit()    
                 print(f"Foram adicionados {purchase_qnty} pcs, do produto {product_code} ao estoque, estoque atual = {new_stock} ")
             else:
@@ -186,8 +205,10 @@ class Moves:
                 if current_location != new_location:
                     # move location
                     cursor.execute("UPDATE Stock SET location = ? WHERE product_code = ?", (new_location, product_code))
+                    
+                    date = datetime.now()
                     # log into movements (fix moved_qnty)
-                    cursor.execute(self.log_movements, (product_code, 'RE-LOCATION', 0, current_location, new_location))
+                    cursor.execute(self.log_movements, (product_code, 'RE-LOCATION', 0, current_location, new_location, date))
                     conn.commit()    
                     print(f"Produto {product_code} foi movimentado de {current_location} para {new_location}")
                 else:
@@ -204,19 +225,20 @@ class Moves:
             for move in moves:
                 print(move)
             
-    
-def teste_report(product_code):
+    # show a overall report
+def teste_report():
     conn = sqlite3.connect('inventory.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT id, product_code, name FROM Products WHERE product_code = ?', (product_code,))
+    cursor.execute('SELECT id, product_code, name FROM Products')
     product = cursor.fetchall()
     print(product)
     
+    # search for especific product code
 def simple_report(product_code):
     conn = sqlite3.connect('inventory.db')
     cursor = conn.cursor()
     cursor.execute('SELECT id, product_code, name, real_stock, location FROM Stock WHERE product_code = ?', (product_code,))
-    stock = cursor.fetchall()
+    stock = cursor.fetchone()
     print(stock)
 
 def detailed_report():
@@ -234,11 +256,11 @@ def detailed_report():
 # produto9 = Product('COM-003', 'Impressora', 'Eletrônicos', 2, 8, 5, 'COMP02')    
 # produto10 = Product('MAQ-002', 'Fogão', 'Eletrodomésticos', 2, 10, 6, 'ELET02')
 # --------------
-# teste_report('CAM-001')
+teste_report()
 # simple_report('CAM-001')
 # ----------teste de movimento----------
-movimento = Moves()
-movimento.stock_incrementing('CAM-001', 50)
-movimento.product_sale('CAM-001', 10)
-movimento.location_movement('MAQ-001', 'NEW-LOQ')
-movimento.report()
+# movimento = Moves()
+# movimento.stock_incrementing('CAM-001', 50)
+# movimento.product_sale('CAM-001', 10)
+# movimento.location_movement('MAQ-001', 'OLD-LOQ')
+# movimento.report()
