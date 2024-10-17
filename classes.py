@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime
+import pandas as pd
 
 # Função para adaptar datetime para string no formato aceito pelo SQLite
 def adapt_datetime(dt):
@@ -38,10 +39,7 @@ class Product:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 product_code VARCHAR(7) UNIQUE,
                 name VARCHAR(30) NOT NULL,
-                category VARCHAR(20) NOT NULL,
-                min_stock INTEGER NOT NULL,
-                max_stock INTEGER NOT NULL,
-                regular_stock INTEGER NOT NULL
+                category VARCHAR(20) NOT NULL
             );
             """
             cursor.execute(create_products_table)
@@ -53,6 +51,9 @@ class Product:
                 product_code VARCHAR(7) UNIQUE,
                 name VARCHAR(30) NOT NULL,
                 real_stock INTEGER NOT NULL DEFAULT 0,
+                min_stock INTEGER NOT NULL,
+                max_stock INTEGER NOT NULL,
+                regular_stock INTEGER NOT NULL,
                 location VARCHAR(20) NOT NULL,
                 FOREIGN KEY (product_code) REFERENCES Products (product_code) ON DELETE CASCADE
             );
@@ -77,11 +78,11 @@ class Product:
     def add_to_product_database(self):
         with sqlite3.connect('inventory.db') as conn:
             cursor = conn.cursor()
-            product_details = (self.product_code, self.name, self.category, self.min_stock, self.max_stock, self.regular_stock)
+            product_details = (self.product_code, self.name, self.category)
             
             # ---------Add to database---------
             try:               
-                insert_product = "INSERT INTO Products (product_code, name, category, min_stock, max_stock, regular_stock) VALUES (?, ?, ?, ?, ?, ?)"
+                insert_product = "INSERT INTO Products (product_code, name, category) VALUES (?, ?, ?)"
                 cursor.execute(insert_product, product_details)
                 conn.commit()
                 print(f"Produto '{self.name}' cadastrado com sucesso.")
@@ -93,11 +94,11 @@ class Product:
     def add_to_stock_database(self):
         with sqlite3.connect('inventory.db') as conn:
             cursor = conn.cursor()
-            stock_details = (self.product_code, self.name, self.location)
+            stock_details = (self.product_code, self.name, self.min_stock, self.max_stock, self.regular_stock, self.location)
             
             # ---------Add to database---------
             try:
-                insert_to_stock = "INSERT INTO Stock (product_code, name, location) VALUES (?, ?, ?)"
+                insert_to_stock = "INSERT INTO Stock (product_code, name, min_stock, max_stock, regular_stock, location) VALUES (?, ?, ?, ?, ?, ?)"
         
                 cursor.execute(insert_to_stock, stock_details)
                 conn.commit()
@@ -120,14 +121,14 @@ class Moves:
 # Nome
 # Categoria
 # Localização
-# Estoque Mínimo
-# Estoque Máximo
-# Estoque Normal
 # Outros atributos fixos (descrição, fornecedor, etc.)
 
 # Tabela Estoque:
 # ID do Produto (chave estrangeira que referencia Produto)
 # Estoque Real
+# Estoque Mínimo
+# Estoque Máximo
+# Estoque Normal
 # Última atualização
 # Local de armazenagem (se for relevante ter mais de um local de estoque)
 
@@ -217,22 +218,45 @@ class Moves:
                 print(f"Produto {product_code} não encontrado no estoque")
     
     @staticmethod
-    def report():
+    def report(number):
         with sqlite3.connect('inventory.db') as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM Movements')
-            moves = cursor.fetchall()
-            for move in moves:
-                print(move)
+            query = 'SELECT * FROM Movements'
+            df = pd.read_sql_query(query, conn)
+            last_moves = {}
+            for move in df.itertuples():
+                print(move.id)
             
     # show a overall report
 def teste_report():
-    conn = sqlite3.connect('inventory.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, product_code, name FROM Products')
-    product = cursor.fetchall()
-    print(product)
+    with sqlite3.connect('inventory.db') as conn:
+        query = "SELECT * FROM Stock"
+        df = pd.read_sql_query(query, conn)
+        
+        # ------- can make function --------
+        # create empty lists and append the product code as it's evaluated
+        low_stock = []
+        over_stock = []
+        regular_stock = []
+        for row in df.itertuples():
+            if row.real_stock > row.max_stock:
+                over_stock.append(row.product_code)
+            elif row.real_stock <= row.min_stock:
+                low_stock.append(row.product_code)
+            else:
+                regular_stock.append(row.product_code)
+                
+        print('Segue os produtos que estão em baixo estoque:')
+        # --another function--
+        print(df[df['product_code'].isin(low_stock)])
+        print('Segue os produtos que estão com excesso de estoque:')
+        print(df[df['product_code'].isin(over_stock)])
+        
+        # ultimas movimentações
+        
+        print('Segue os produtos que estão com estoque regular:')
+        print(df[df['product_code'].isin(regular_stock)])
     
+        
     # search for especific product code
 def simple_report(product_code):
     conn = sqlite3.connect('inventory.db')
@@ -240,8 +264,9 @@ def simple_report(product_code):
     cursor.execute('SELECT id, product_code, name, real_stock, location FROM Stock WHERE product_code = ?', (product_code,))
     stock = cursor.fetchone()
     print(stock)
+    conn.close()
 
-def detailed_report():
+def analized_report():
     pass
     
     # criar produtos---------

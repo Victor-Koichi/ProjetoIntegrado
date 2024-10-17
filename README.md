@@ -6,6 +6,7 @@ Grandes requisitos
 -Atualização de estoque
 -Rastreamento de localização
 -Relatório
+-Permissões/privilégios do usuário
 
 Estrutura dos dados
 
