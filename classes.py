@@ -15,6 +15,8 @@ sqlite3.register_adapter(datetime, adapt_datetime)
 sqlite3.register_converter("DATETIME", convert_datetime)
 
 
+
+
 # **To register a product you need to give it a name and category, minimum stock, maximum stock, regular stock and location**
 class Product:
     def __init__(self, product_code, name, category, min_stock, max_stock, regular_stock, location):
@@ -75,6 +77,8 @@ class Product:
             cursor.execute(create_movements_table)
 
             conn.commit()
+            
+    # ☆☆Add product static datas to Products TABLE☆☆
     def add_to_product_database(self):
         with sqlite3.connect('inventory.db') as conn:
             cursor = conn.cursor()
@@ -91,6 +95,7 @@ class Product:
             except sqlite3.IntegrityError:
                 print(f"Erro: já existe produto com código {self.product_code}")
                 
+    # ☆☆Add product dynamic datas to Stock TABLE☆☆
     def add_to_stock_database(self):
         with sqlite3.connect('inventory.db') as conn:
             cursor = conn.cursor()
@@ -113,7 +118,9 @@ class Product:
     
 class Moves:
     def __init__(self):
-        self.log_movements = "INSERT INTO Movements (product_code, movement_category, moved_quantity, before_change, after_change, timestamp) VALUES (?, ?, ?, ?, ?, ?)"        
+        # Inserto movement logs into Movements TABLE
+        self.log_movements = "INSERT INTO Movements (product_code, movement_category, moved_quantity, before_change, after_change, timestamp) VALUES (?, ?, ?, ?, ?, ?)"   
+          
         self.update_stock = "UPDATE Stock SET real_stock = ? WHERE product_code = ?"
 #         Tabela Produto:
 
@@ -140,12 +147,12 @@ class Moves:
 # Data da Movimentação
 # Motivo (compra, venda, ajuste, etc.)
         pass
-    
+    # ☆☆☆ Product Sale (Reduce Stock) ☆☆☆
     def product_sale(self, product_code, sale_qnty):
         with sqlite3.connect('inventory.db') as conn:
             cursor = conn.cursor()
             
-            # Get actual stock
+            # Get current stock
             cursor.execute("SELECT real_stock FROM Stock WHERE product_code = ?", (product_code,))
             result = cursor.fetchone()
 
@@ -169,6 +176,7 @@ class Moves:
             else:
                 print(f"Produto {product_code} não encontrado no estoque")
                 
+                # ☆☆☆ Product Purchase (Add Stock)☆☆☆
     def stock_incrementing(self, product_code, purchase_qnty):
         with sqlite3.connect('inventory.db') as conn:
             cursor = conn.cursor()
@@ -192,6 +200,7 @@ class Moves:
             else:
                 print(f"Produto {product_code} não encontrado no estoque")
 
+                    # ☆☆ Stocking location change ☆☆ 
     def location_movement(self, product_code, new_location):
         with sqlite3.connect('inventory.db') as conn:
             cursor = conn.cursor()
@@ -217,47 +226,56 @@ class Moves:
             else:
                 print(f"Produto {product_code} não encontrado no estoque")
     
-    @staticmethod
-    def report(number):
+    @staticmethod # Return the df with last 5 moves from movement logs
+    def last_moves():
         with sqlite3.connect('inventory.db') as conn:
-            query = 'SELECT * FROM Movements'
+            query = "SELECT * FROM Movements"
             df = pd.read_sql_query(query, conn)
-            last_moves = {}
-            for move in df.itertuples():
-                print(move.id)
-            
-    # show a overall report
-def teste_report():
-    with sqlite3.connect('inventory.db') as conn:
-        query = "SELECT * FROM Stock"
-        df = pd.read_sql_query(query, conn)
-        
-        # ------- can make function --------
-        # create empty lists and append the product code as it's evaluated
-        low_stock = []
-        over_stock = []
-        regular_stock = []
-        for row in df.itertuples():
-            if row.real_stock > row.max_stock:
-                over_stock.append(row.product_code)
-            elif row.real_stock <= row.min_stock:
-                low_stock.append(row.product_code)
-            else:
-                regular_stock.append(row.product_code)
+            moves = []
+            for i in range(5):
+                if len(df) - i - 1 >= 0:
+                    moves.append(df.iloc[len(df) - i - 1])
                 
-        print('Segue os produtos que estão em baixo estoque:')
-        # --another function--
-        print(df[df['product_code'].isin(low_stock)])
-        print('Segue os produtos que estão com excesso de estoque:')
-        print(df[df['product_code'].isin(over_stock)])
-        
-        # ultimas movimentações
-        
-        print('Segue os produtos que estão com estoque regular:')
-        print(df[df['product_code'].isin(regular_stock)])
+            new_df = pd.DataFrame(moves)    
+            return new_df
+            
+    # ☆☆☆☆Show a overall report☆☆☆☆
+    def overall_report(self):
+        with sqlite3.connect('inventory.db') as conn:
+            query = "SELECT * FROM Stock"
+            df = pd.read_sql_query(query, conn)
+            
+            # ------- can make function --------
+            # create empty lists and append the product code as it's evaluated
+            low_stock = []
+            over_stock = []
+            regular_stock = []
+            for row in df.itertuples():
+                if row.real_stock > row.max_stock:
+                    over_stock.append(row.product_code)
+                elif row.real_stock <= row.min_stock:
+                    low_stock.append(row.product_code)
+                else:
+                    regular_stock.append(row.product_code)
+                    
+            print('Segue os produtos que estão em baixo estoque:')
+            # --another function--
+            print(df[df['product_code'].isin(low_stock)])
+            print('Segue os produtos que estão com excesso de estoque:')
+            print(df[df['product_code'].isin(over_stock)])
+            
+            # ultimas movimentações (function?)
+            last_moves = self.last_moves()
+            print('As últimas movimentações foram:')
+            for row in last_moves.itertuples():
+                print(f'Produto: {row.product_code}, Motivo: {row.movement_category}, Quantidade: {row.moved_quantity}, Antes: {row.before_change}, Depois: {row.after_change}, Horário: {row.timestamp}')
+            
+            # Estoque normal
+            print('Segue os produtos que estão com estoque regular:')
+            print(df[df['product_code'].isin(regular_stock)])
     
         
-    # search for especific product code
+    # ☆☆☆Search for especific product code (simple report)☆☆☆
 def simple_report(product_code):
     conn = sqlite3.connect('inventory.db')
     cursor = conn.cursor()
@@ -265,10 +283,12 @@ def simple_report(product_code):
     stock = cursor.fetchone()
     print(stock)
     conn.close()
-
+    # ☆☆Show detailed information about stock and tips☆☆
 def analized_report():
     pass
-    
+
+
+        
     # criar produtos---------
 # produto1 = Product('CAM-001', 'Camiseta', 'Vestuário', 10, 50, 30, 'VEST01')    
 # produto2 = Product('CAM-002', 'Camiseta', 'Vestuário', 10, 50, 30, 'VEST01')    
@@ -281,11 +301,12 @@ def analized_report():
 # produto9 = Product('COM-003', 'Impressora', 'Eletrônicos', 2, 8, 5, 'COMP02')    
 # produto10 = Product('MAQ-002', 'Fogão', 'Eletrodomésticos', 2, 10, 6, 'ELET02')
 # --------------
-teste_report()
+# teste_report()
 # simple_report('CAM-001')
 # ----------teste de movimento----------
-# movimento = Moves()
+movimento = Moves()
 # movimento.stock_incrementing('CAM-001', 50)
+# movimento.stock_incrementing('PAP-001', 150)
 # movimento.product_sale('CAM-001', 10)
-# movimento.location_movement('MAQ-001', 'OLD-LOQ')
-# movimento.report()
+# movimento.location_movement('MAQ-001', 'NEW-LOQ')
+# movimento.overall_report()
