@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime
 import pandas as pd
+from dateutil.relativedelta import relativedelta
 
 # Função para adaptar datetime para string no formato aceito pelo SQLite
 def adapt_datetime(dt):
@@ -227,17 +228,18 @@ class Moves:
                 print(f"Produto {product_code} não encontrado no estoque")
     
     @staticmethod # Return the df with last 5 moves from movement logs
-    def last_moves():
+    def last_moves(moves):
         with sqlite3.connect('inventory.db') as conn:
             query = "SELECT * FROM Movements"
             df = pd.read_sql_query(query, conn)
             moves = []
-            for i in range(5):
+            for i in range(moves):
+                # check if df length is valid
                 if len(df) - i - 1 >= 0:
                     moves.append(df.iloc[len(df) - i - 1])
                 
             new_df = pd.DataFrame(moves)    
-            return new_df
+        return new_df
             
     # ☆☆☆☆Show a overall report☆☆☆☆
     def overall_report(self):
@@ -265,7 +267,7 @@ class Moves:
             print(df[df['product_code'].isin(over_stock)])
             
             # ultimas movimentações (function?)
-            last_moves = self.last_moves()
+            last_moves = self.last_moves(5)
             print('As últimas movimentações foram:')
             for row in last_moves.itertuples():
                 print(f'Produto: {row.product_code}, Motivo: {row.movement_category}, Quantidade: {row.moved_quantity}, Antes: {row.before_change}, Depois: {row.after_change}, Horário: {row.timestamp}')
@@ -277,17 +279,48 @@ class Moves:
         
     # ☆☆☆Search for especific product code (simple report)☆☆☆
 def simple_report(product_code):
-    conn = sqlite3.connect('inventory.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, product_code, name, real_stock, location FROM Stock WHERE product_code = ?', (product_code,))
-    stock = cursor.fetchone()
-    print(stock)
-    conn.close()
+    with sqlite3.connect('inventory.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT product_code, name, real_stock, location FROM Stock WHERE product_code = ?', (product_code,))
+        stock = cursor.fetchone()
+        print(f'O produto {stock[1]}: {stock[0]}, está na locação {stock[3]}, com {stock[2]} unidades em estoque.')
     # ☆☆Show detailed information about stock and tips☆☆
+    
+def return_df_by_time_and_category(df, category, time):
+    new_df = df[(df['movement_category'] == category) & (df['timestamp'] >= time)]
+    return new_df
+    
+def return_last_sales_and_purchases():
+    with sqlite3.connect('inventory.db') as conn:
+        query_moves = "SELECT * FROM Movements"
+        all_moves = pd.read_sql_query(query_moves, conn, parse_dates='timestamp')    
+        query_products = "SELECT * FROM Products"
+        all_products = pd.read_sql_query(query_products, conn)
+        two_months_ago = datetime.now() - relativedelta(months=2)
+        thirty_days_ago = datetime.now() - relativedelta(days=30)
+        fifteen_days_ago = datetime.now() - relativedelta(days=15)
+        last_thirty_days_sales = return_df_by_time_and_category(all_moves, 'SALE', thirty_days_ago)
+        last_two_months_purchases = return_df_by_time_and_category(all_moves, 'PURCHASE', two_months_ago)
+
+        not_saled = all_products[~all_products['product_code'].isin(last_thirty_days_sales['product_code'])]
+        
+        count_df = last_two_months_purchases.groupby('product_code').size().reset_index(name='count')
+        recommend_add = {}
+        for row in count_df.itertuples():
+            if row.count > 3:
+                recommend_add[row.product_code] = row.count
+    return not_saled, recommend_add
+    
+            
 def analized_report():
-    pass
-
-
+    not_saled, increase_stock_recommendation = return_last_sales_and_purchases()
+    print('Segue algumas informações que podem ser relevantes:')
+    print('Produtos que não são vendidos há mais de 30 dias.')
+    for row in not_saled.itertuples():
+        print(f'{row.name} de código {row.product_code}')
+    print('Nos últimos 2 meses:')
+    for product_code, sales in increase_stock_recommendation.items():
+        print(f'O produto de código {product_code} teve pedido reposição de estoque {sales} vezes.')
         
     # criar produtos---------
 # produto1 = Product('CAM-001', 'Camiseta', 'Vestuário', 10, 50, 30, 'VEST01')    
@@ -304,9 +337,10 @@ def analized_report():
 # teste_report()
 # simple_report('CAM-001')
 # ----------teste de movimento----------
-movimento = Moves()
+# movimento = Moves()
 # movimento.stock_incrementing('CAM-001', 50)
 # movimento.stock_incrementing('PAP-001', 150)
 # movimento.product_sale('CAM-001', 10)
 # movimento.location_movement('MAQ-001', 'NEW-LOQ')
 # movimento.overall_report()
+analized_report()
