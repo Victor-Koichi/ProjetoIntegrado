@@ -123,31 +123,7 @@ class Moves:
         self.log_movements = "INSERT INTO Movements (product_code, movement_category, moved_quantity, before_change, after_change, timestamp) VALUES (?, ?, ?, ?, ?, ?)"   
           
         self.update_stock = "UPDATE Stock SET real_stock = ? WHERE product_code = ?"
-#         Tabela Produto:
-
-# ID do Produto (chave primária)
-# Nome
-# Categoria
-# Localização
-# Outros atributos fixos (descrição, fornecedor, etc.)
-
-# Tabela Estoque:
-# ID do Produto (chave estrangeira que referencia Produto)
-# Estoque Real
-# Estoque Mínimo
-# Estoque Máximo
-# Estoque Normal
-# Última atualização
-# Local de armazenagem (se for relevante ter mais de um local de estoque)
-
-# Tabela MovimentacaoEstoque:
-# ID da Movimentação (chave primária)
-# ID do Produto (chave estrangeira que referencia Produto)
-# Quantidade Movimentada
-# Tipo de Movimentação (entrada ou saída)
-# Data da Movimentação
-# Motivo (compra, venda, ajuste, etc.)
-        pass
+        
     # ☆☆☆ Product Sale (Reduce Stock) ☆☆☆
     def product_sale(self, product_code, sale_qnty):
         with sqlite3.connect('inventory.db') as conn:
