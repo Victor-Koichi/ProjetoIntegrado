@@ -69,11 +69,13 @@ class InventoryManager:
             conn.commit()
             
 # ☆☆Add producto to Products and Stock TABLEs☆☆         
-    def add_product(self, product_code, name, category, min_stock, max_stock, regular_stock, location):
-        # melhorar validação de dados (relação entre minimo/reg/max), (valores negativos)
-        product_details = (product_code, name, category)
-        stock_details = (product_code, name, min_stock, regular_stock, max_stock, location)
-        self.add_to_tables(self.inventory_db, product_details, stock_details)
+    def add_product(self, product_code, name, category, min_stock, regular_stock, max_stock, location):
+        if min_stock >= 0 and regular_stock > min_stock and max_stock > regular_stock:
+            product_details = (product_code, name, category)
+            stock_details = (product_code, name, min_stock, regular_stock, max_stock, location)
+            self.add_to_tables(self.inventory_db, product_details, stock_details)
+        else:
+            print('O estoque mínimo deve ser 0 ou maior, o estoque regular maior que o mínimo e o estoque máximo maior que o regular.')
     
     @staticmethod
     def add_to_tables(inventory_db, product_details, stock_details):
@@ -95,46 +97,52 @@ class InventoryManager:
                 
 # ☆☆☆ Product Sale (Reduce Stock) ☆☆☆       
     def product_sale(self, product_code, sale_qnty):
-        with sqlite3.connect(self.inventory_db) as conn:
-            cursor = conn.cursor()
-                # Get current stock
-            result = self.get_real_stock(cursor, product_code)
-                # Check if there is enough stock to make the sale
-            if result:
-                current_stock = result[0]
-                if current_stock >= sale_qnty:
-                    new_stock = current_stock - sale_qnty
+        if not sale_qnty > 0:
+            print('Insira quantidade de venda maior que 0.')
+        else:
+            with sqlite3.connect(self.inventory_db) as conn:
+                cursor = conn.cursor()
+                    # Get current stock
+                result = self.get_real_stock(cursor, product_code)
+                    # Check if there is enough stock to make the sale
+                if result:
+                    current_stock = result[0]
+                    if current_stock >= sale_qnty:
+                        new_stock = current_stock - sale_qnty
+                        update_data = (new_stock, product_code)
+                        log_data = (product_code, result[1], 'SALE', sale_qnty, current_stock, new_stock)
+                            # update Stock and create log in Movements
+                        self.update_stock(cursor, update_data, log_data)
+                        conn.commit()
+                        
+                        print(f"Foram vendidos {sale_qnty} pcs, do produto {product_code}, estoque atual = {new_stock} ")
+                    else:
+                        print(f'Estoque do produto {product_code} insuficiente.')
+                else:
+                    print(f"Produto {product_code} não encontrado no estoque")
+                    
+# ☆☆☆ Product Purchase (Add Stock)☆☆☆
+    def product_purchase(self, product_code, purchase_qnty):
+        if not purchase_qnty > 0:
+            print('Insira quantidade de compra maior que 0.')
+        else:
+            with sqlite3.connect(self.inventory_db) as conn:
+                cursor = conn.cursor()
+                    # Get current stock
+                result = self.get_real_stock(cursor, product_code)
+                    # If found in stock, increment real_stock
+                if result:
+                    current_stock = result[0]
+                    new_stock = current_stock + purchase_qnty
                     update_data = (new_stock, product_code)
-                    log_data = (product_code, result[1], 'SALE', sale_qnty, current_stock, new_stock)
+                    log_data = (product_code, result[1], 'PURCHASE', purchase_qnty, current_stock, new_stock)
                         # update Stock and create log in Movements
                     self.update_stock(cursor, update_data, log_data)
                     conn.commit()
                     
-                    print(f"Foram vendidos {sale_qnty} pcs, do produto {product_code}, estoque atual = {new_stock} ")
+                    print(f"Foram adicionados {purchase_qnty} pcs, do produto {product_code} ao estoque, estoque atual = {new_stock} ")
                 else:
-                    print(f'Estoque do produto {product_code} insuficiente.')
-            else:
-                print(f"Produto {product_code} não encontrado no estoque")
-                    
-# ☆☆☆ Product Purchase (Add Stock)☆☆☆
-    def product_purchase(self, product_code, purchase_qnty):
-        with sqlite3.connect(self.inventory_db) as conn:
-            cursor = conn.cursor()
-                # Get current stock
-            result = self.get_real_stock(cursor, product_code)
-                # If found in stock, increment real_stock
-            if result:
-                current_stock = result[0]
-                new_stock = current_stock + purchase_qnty
-                update_data = (new_stock, product_code)
-                log_data = (product_code, result[1], 'PURCHASE', purchase_qnty, current_stock, new_stock)
-                    # update Stock and create log in Movements
-                self.update_stock(cursor, update_data, log_data)
-                conn.commit()
-                
-                print(f"Foram adicionados {purchase_qnty} pcs, do produto {product_code} ao estoque, estoque atual = {new_stock} ")
-            else:
-                print(f"Produto {product_code} não encontrado no estoque")
+                    print(f"Produto {product_code} não encontrado no estoque")
 
     @staticmethod
     def get_real_stock(cursor, product_code):
@@ -262,3 +270,5 @@ manage = InventoryManager('inventoring.db')
 # manage.product_purchase('MAQ-001', 1)
 # manage.analized_report()
 manage.overall_report()
+
+# manage.add_product('CAS-004', 'Caneca', 'Casa', 0, 10, 20, 'PAP01')
