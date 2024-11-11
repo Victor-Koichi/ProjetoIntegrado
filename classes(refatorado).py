@@ -25,99 +25,7 @@ class InventoryManager:
         self.user_code = None
         self.privillege = 0
         self.start()
-    
-    def start(self):
-        while True:
-            option = int(input("Para fazer login digite 1, para criar novo usuário digite 2"))
-            if option == 1:
-                user = input("Digite seu id: ")
-                self.user_code = user
-                self.log_user()
-            elif option == 2:
-                self.create_user()
-            else:
-                print("Tente novamente")
-                
-    def create_user(self):
-        while True:
-            new_user = input("Deseja criar novo usuário? Y/N:\n")
-            if new_user == "Y":
-                # Input user name and position
-                new_user = input("Digite seu nome:\n")
-                privillege = int(input("Digite o número do seu cargo (Estoquista[1], Usuário[2], Gerente de Setor[3]):\n"))
-                while True:
-                    if privillege != 1 and privillege != 2 and privillege != 3 :
-                        print("Cargo inválido, tente novamente")
-                    else:
-                        with sqlite3.connect(self.inventory_db) as conn:
-                            cursor = conn.cursor()
-                            insert_user = "INSERT INTO USERS (name, privillege) VALUES (?,?)"
-                            cursor.execute(insert_user, (new_user, privillege))
-                            conn.commit()
-                            break
-                print(f"{new_user} Cadastrado.")
-                self.privillege = privillege
-                break
-            elif new_user == "N":
-                print('Comece novamente')
-                break
-            else:
-                print('Tente novamente')
-    def log_user(self):
-        with sqlite3.connect(self.inventory_db) as conn:
-            cursor = conn.cursor()
-            while True:
-                cursor.execute("SELECT id, name, privillege FROM Users WHERE id = ?", (self.user_code,))
-                result = cursor.fetchone()
-                # If user found, get the privilleges
-                if result:
-                    self.privillege = result[2]
-                    print(f'Bem vindo, {result[1]}.\nO que deseja fazer?')
-                    comando = int(input('[0] Buscar o produto pelo código, [1] Relatório de posição semanal, [2] Análise do estado do estoque,\n[3] Solicitar reposição de estoque, [4] Registrar entrada de produto, [5] Venda de produto,\n[6] Adicionar produto novo, [7] Aprovar reposição de estoque, [8] Procurar ordens de reposição em aberto\n: '))
-                    if comando == 0:
-                        consult = input("Digite o código do produto: ")
-                        self.simple_report(consult)
-                    elif comando == 1:
-                        print("Segue o relatório semanal: ")
-                        self.overall_report()
-                    elif comando == 2:
-                        print("Segue a análise do estado do estoque: ")
-                        self.analized_report()
-                    elif comando == 3:
-                        # adicionar validações
-                        p_code = input("Para solicitar reposição de estoque, digite o código do produto: ")
-                        name = input("Agora digite o nome do produto: ")
-                        quantity = int(input("Digite a quantidade necessária: "))
-                        self.purchase_order(p_code, name, quantity)    
-                    elif comando == 4:
-                        p_code = input("Para registrar entrada, digite o código do produto: ")
-                        quantity = int(input("Digite a quantidade: "))
-                        nf = input("Digite o número da NF: ")
-                        self.product_entry(p_code, quantity, nf)
-                    elif comando == 5:
-                        p_code = input("Para venda, digite o código do produto: ")
-                        quantity= int(input("Digite a quantidade: "))
-                        self.product_sale(p_code, quantity)
-                    elif comando == 6:
-                        p_code = input("Para criar um novo produto, digite o código do produto")
-                        name = input("Digite o nome: ")
-                        category = input("Digite a categoria do produto: ")
-                        min_stock = int(input("Digite a quantidade mínima de estoque: "))
-                        regular_stock = int(input("Digite a quantidade normal de estoque: "))
-                        max_stock = int(input("Digite a quantidade máxima de estoque: "))
-                        location = input("Digite a locação: ")
-                        self.add_product(p_code, name, category, min_stock, regular_stock, max_stock, location)
-                    elif comando == 7:
-                        order_id = input("Para aprovar uma solicitação de reposição, digite o id da solicitação: ")
-                        self.approve_order(order_id)
-                    elif comando == 8:
-                        print("Segue as ordens de reposição em aberto: ")
-                        self.get_not_approved()
-                    else:
-                        print('Digite comando válido.')
-                else:
-                    print(f"Usuário {self.user_code} não encontrado.")
-            
+
 # ☆☆Create Users, Products, Stock, Movements and Purchase TABLEs☆☆  
     # **The registered product details(statics) are stored in a table, and the stock details(dynamics) are stored in another**
     def create_tables(self):
@@ -186,11 +94,97 @@ class InventoryManager:
             """
             cursor.execute(create_purchase_table)
             conn.commit()
+        #  Start program
+    def start(self):
+        while True:
+            # login or create new user
+            option = int(input("Para fazer login digite 1, para criar novo usuário digite 2\n"))
+            if option == 1:
+                user = input("Digite seu id: \n")
+                self.user_code = user
+                self.log_user()
+            elif option == 2:
+                self.create_user()
+            else:
+                print("Tente novamente")
+                
+    def create_user(self):
+        while True:
+            new_user = input("Deseja criar novo usuário? Y/N:\n")
+            if new_user == "Y":
+                # Input user name and position
+                new_user = input("Digite seu nome:\n")
+                privillege = int(input("Digite o número do seu cargo (Estoquista[1], Usuário[2], Gerente de Setor[3]):\n"))
+                while True:
+                    if privillege != 1 and privillege != 2 and privillege != 3 :
+                        print("Cargo inválido, tente novamente")
+                        # If new user informations are valid, insert into table
+                    else:
+                        with sqlite3.connect(self.inventory_db) as conn:
+                            cursor = conn.cursor()
+                            insert_user = "INSERT INTO USERS (name, privillege) VALUES (?,?)"
+                            cursor.execute(insert_user, (new_user, privillege))
+                            conn.commit()
+                            break
+                print(f"{new_user} Cadastrado.")
+                self.privillege = privillege
+                break
+            elif new_user == "N":
+                print('Comece novamente')
+                break
+            else:
+                print('Tente novamente')
+    def log_user(self):
+        with sqlite3.connect(self.inventory_db) as conn:
+            cursor = conn.cursor()
+            while True:
+                cursor.execute("SELECT id, name, privillege FROM Users WHERE id = ?", (self.user_code,))
+                result = cursor.fetchone()
+                # If user found, get the privilleges
+                if result:
+                    self.privillege = result[2]
+                    self.dialogue_options(result[1]) #Show the name of user
+                else:
+                    print(f"Usuário {self.user_code} não encontrado.")
+            
+
+            
+    def dialogue_options(self, nome):
+        print(f'Bem vindo, {nome}.\nO que deseja fazer?')
+        comando = int(input('[0] Buscar o produto pelo código, [1] Relatório de posição semanal, [2] Análise do estado do estoque,\n[3] Solicitar reposição de estoque, [4] Registrar entrada de produto, [5] Venda de produto,\n[6] Adicionar produto novo, [7] Aprovar reposição de estoque, [8] Procurar ordens de reposição em aberto\n: '))
+        if comando == 0:
+            self.simple_report()
+        elif comando == 1:
+            self.overall_report()
+        elif comando == 2:
+            self.analized_report()
+        elif comando == 3:
+            self.purchase_order()    
+        elif comando == 4:
+            self.product_entry()
+        elif comando == 5:
+            self.product_sale()
+        elif comando == 6:
+            self.add_product()
+        elif comando == 7:
+            self.approve_order()
+        elif comando == 8:
+            self.get_not_approved()
+        else:
+            print('Digite comando válido.')
+        
             
 # ☆☆Add product to Products and Stock TABLEs☆☆
-    def add_product(self, product_code, name, category, min_stock, regular_stock, max_stock, location):
+    def add_product(self):
         # Check if the user is user or manager
         if self.privillege == 2 or self.privillege == 3:
+            product_code = input("Para criar um novo produto, digite o código do produto")
+            name = input("Digite o nome: ")
+            category = input("Digite a categoria do produto: ")
+            min_stock = int(input("Digite a quantidade mínima de estoque: "))
+            regular_stock = int(input("Digite a quantidade normal de estoque: "))
+            max_stock = int(input("Digite a quantidade máxima de estoque: "))
+            location = input("Digite a locação: ")
             # Check if min stock is not negative, regular stock is bigger than min, and max is bigger than regular
             if min_stock >= 0 and regular_stock > min_stock and max_stock > regular_stock:
                 # Separate product informations into product details(static), and stock details(dynamic)
@@ -223,11 +217,15 @@ class InventoryManager:
                 print(f"Erro: já existe produto com código {product_details[0]}")
                 
 # ☆☆☆ Purchase Order ☆☆☆   
-    def purchase_order(self, product_code, name, quantity):
+            # adicionar validações, ou inserir quantidade automaticamente
+    def purchase_order(self):
         # Check if the user is user or manager
         if self.privillege == 2 or self.privillege == 3:
             with sqlite3.connect(self.inventory_db) as conn:
                 cursor = conn.cursor()
+                product_code = input("Para solicitar reposição de estoque, digite o código do produto: ")
+                name = input("Agora digite o nome do produto: ")
+                quantity = int(input("Digite a quantidade necessária: "))
                 purchase_details = (product_code, name, quantity, datetime.now())
                 # Insert order into purchase table
                 insert_order = "INSERT INTO Purchase (product_code, name, purchase_order_quantity, order_date) VALUES (?, ?, ?, ?)"
@@ -236,16 +234,18 @@ class InventoryManager:
         else:
             print('Acesso negado.')                
 # ☆☆☆ Approve Order ☆☆☆   
-    def approve_order(self, order_id):
+    def approve_order(self):
         # Check if the user is manager
         if self.privillege == 3:
             with sqlite3.connect(self.inventory_db) as conn:
                 cursor = conn.cursor()
+                order_id = input("Para aprovar uma solicitação de reposição, digite o id da solicitação: ")
                 # Update order to approved
-                approve_product = ('TRUE', order_id)
+                approve_product = (1, order_id)
                 sql = "UPDATE Purchase SET order_approved = ? WHERE id = ?"
                 cursor.execute(sql, approve_product)
                 conn.commit()
+                print(f'Ordem de compra do id: {order_id}, foi aprovada')
         else:
             print('Acesso negado.')                
 # ☆☆☆ Get not approved orders ☆☆☆   
@@ -253,17 +253,20 @@ class InventoryManager:
         # Check if the user is user or manager
         if self.privillege == 2 or self.privillege == 3:
             with sqlite3.connect(self.inventory_db) as conn:
-                query = "SELECT * FROM Purchase WHERE order_approved = FALSE"
+                query = "SELECT * FROM Purchase WHERE order_approved = 0"
                 not_approved_df = pd.read_sql_query(query, conn)
-                print('Produtos com ordem de compra não aprovadas')
+                
+                print("Segue as ordens de reposição em aberto: ")
                 for row in not_approved_df.itertuples():
                     print(f'ID da solicitação: {row.id}, Código: {row.product_code}, Nome: {row.name}, Quantidade solicitada: {row.purchase_order_quantity}.')
         else:
             print('Acesso negado.')
 # ☆☆☆ Product Sale (Reduce Stock) ☆☆☆       
-    def product_sale(self, product_code, sale_qnty):
+    def product_sale(self):
         # Check if the user is user or manager
         if self.privillege == 2 or self.privillege == 3:
+            product_code = input("Para venda, digite o código do produto: ")
+            sale_qnty= int(input("Digite a quantidade: "))
                 # Check if sale quantity is not negative or 0
             if not sale_qnty > 0:
                 print('Insira quantidade de venda maior que 0.')
@@ -294,34 +297,39 @@ class InventoryManager:
             print('Acesso negado.')
                     
 # ☆☆☆ Product Purchase (Add Stock)☆☆☆
-    def product_entry(self, product_code, purchase_qnty, nf):
+    def product_entry(self):
         # Check if it's stocker or manager
         if self.privillege == 1 or self.privillege == 3:
+            po_number = input("Para registrar a entrada, digite o código da ordem de compra: ")
+            
+            # product_code = input("Para registrar entrada, digite o código do produto: ")
+            # purchase_qnty = int(input("Digite a quantidade: "))
+            nf = input("Digite o número da NF: ")
             # Validate nf
             valid_nf = self.validate_nf(nf)
             if valid_nf:
-            # Check if purchase quantity is not negative or 0
-                if not purchase_qnty > 0:
-                    print('Insira quantidade de compra maior que 0.')
-                else:
-                    with sqlite3.connect(self.inventory_db) as conn:
-                        cursor = conn.cursor()
-                            # Get current stock
+                with sqlite3.connect(self.inventory_db) as conn:
+                    cursor = conn.cursor()
+                    po_approved_and_not_finished = self.get_po_info(cursor, po_number)
+                    if po_approved_and_not_finished:
+                        product_code = po_approved_and_not_finished[0]
                         result = self.get_real_stock(cursor, product_code)
-                            # If found in stock, increment real_stock
+                            # if found in stock, increment real_stock
                         if result:
                             current_stock = result[0]
+                            product_name = po_approved_and_not_finished[1]
+                            ordered_quantity = po_approved_and_not_finished[2]
                                 # Add purchase quantity to current stock
-                            new_stock = current_stock + purchase_qnty
-                                # Prepare update and log infos
+                            new_stock = current_stock +ordered_quantity
+                                # Prepare update and log infos                
                             update_data = (new_stock, product_code)
-                            log_data = (product_code, result[1], 'PURCHASE', purchase_qnty, current_stock, new_stock)
+                            log_data = (product_code, product_name, 'PURCHASE', ordered_quantity, current_stock, new_stock)
                                 # Update Stock and create log in Movements
                             self.update_stock(cursor, update_data, log_data)
-                            self.register_entry(cursor, product_code)
+                            self.register_entry(cursor, po_number)
                             conn.commit()
                             
-                            print(f"Foram adicionados {purchase_qnty} pcs, do produto {product_code} ao estoque, estoque atual = {new_stock} ")
+                            print(f"Foram adicionados {ordered_quantity} pcs, do produto {product_code} ao estoque, estoque atual = {new_stock} ")
                         else:
                             print(f"Produto {product_code} não encontrado no estoque")
             else:
@@ -341,12 +349,28 @@ class InventoryManager:
             cursor.execute("SELECT real_stock, name FROM Stock WHERE product_code = ?", (product_code,))
             result = cursor.fetchone()
             return result
+    @staticmethod
+    def get_po_info(cursor, po_number):
+            # check if p.o is approved
+            cursor.execute("SELECT order_approved, order_finished FROM Purchase WHERE id = ?", (po_number,))
+            status = cursor.fetchone()
+            print(status, status[0])
+            if bool(status[0]):
+                if not bool(status[1]):
+                    # Get purchase order infos from p.o. id
+                    cursor.execute("SELECT product_code, name, purchase_order_quantity FROM Purchase WHERE id = ?", (po_number,))
+                    result = cursor.fetchone()
+                    return result
+                else:
+                    print("Ordem de compra já finalizada")
+            else:
+                print("Ordem de compra não aprovada")
 
     @staticmethod
-    def register_entry(cursor, product_code):
+    def register_entry(cursor, id):
             # Update current purchase order to finished, from product code
-        approve = ('TRUE', product_code)
-        sql = "UPDATE Purchase SET order_finished = ? WHERE product_code = ?"
+        approve = (1, id)
+        sql = "UPDATE Purchase SET order_finished = ? WHERE id = ?"
         cursor.execute(sql, approve)
     @staticmethod
     def update_stock(cursor, new_stock, logs):
@@ -361,12 +385,13 @@ class InventoryManager:
         cursor.execute(sql, logs)
         
 # ☆☆☆Search for especific product code (simple report)☆☆☆
-    def simple_report(self, product_code):
+    def simple_report(self):
         # Check if the user is logged
         if self.privillege == 1 or self.privillege == 2 or self.privillege == 3:
             with sqlite3.connect(self.inventory_db) as conn:
                 cursor = conn.cursor()
                 # Get product informations from product code
+                product_code = input("Digite o código do produto: ")
                 cursor.execute('SELECT product_code, name, real_stock, location FROM Stock WHERE product_code = ?', (product_code,))
                 stock = cursor.fetchone()
             print(f'O produto "{stock[1]}: {stock[0]}", está na locação {stock[3]}, com {stock[2]} unidades em estoque.')
@@ -385,6 +410,7 @@ class InventoryManager:
                 moves_df = pd.read_sql_query(query, conn, parse_dates='timestamp')
             # Filter products from Stock that are with low/regular/over stock
             self.filter_df(oa_df)
+            print("Segue o relatório semanal: ")
             # Show last seven days movement logs
             self.last_moves(moves_df)
         else:
@@ -434,7 +460,8 @@ class InventoryManager:
             not_saled = self.not_saled_items(products_df, last_sales)
             # Filter the products that had more than n purchases in the specified period
             purchases_more_than_x = self. filter_by_purchases_count(last_purchases, purchase_count)
-            
+
+            print("Segue a análise do estado do estoque: ")
             print(f'Produtos que não são vendidos há mais de {sales_days} dias.')
             for row in not_saled.itertuples():
                 print(f'{row.name} de código {row.product_code}')
